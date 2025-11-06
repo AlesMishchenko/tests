@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>понимаете ли Вы как мыслит ИИ? тест на определение того что именно хотел изобразить ИИ. do you understand the way AI thinks? test on guessing what exactly AI wanted to draw.</title> 
+<style>
+  html, body { min-height:100%; margin:0; overflow-y:auto; font-family:sans-serif; background:#fff; color:#111; }
+  .app { display:flex; flex-direction:column; min-height:100vh; background-repeat:repeat; }
+
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#f5f5f5; border-bottom:1px solid #ddd; }
+  .title { font-size:1.2rem; font-weight:600; }
+  .score { font-size:1rem; color:#444; }
+
+  .middle { flex:1 1 auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; padding:12px; align-items:center; justify-items:center; }
+
+  .card { position:relative; width:100%; aspect-ratio:3 / 4; max-width:420px; border:1px solid #ddd; border-radius:8px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow:hidden; transition:transform 120ms ease; will-change:transform; }
+  .card.hovered { transform: scale(1.07); }
+  
+  .minicard { position:relative; width:100%; aspect-ratio:3 / 4; max-width:160px; border:1px solid #ddd; border-radius:8px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow:hidden; transition:transform 120ms ease; will-change:transform; }
+  .minicard.hovered { transform: scale(1.07); }
+  
+  .imgWrap { position:absolute; inset:8px; display:flex; align-items:center; justify-content:center; transition:transform 120ms ease; will-change:transform; }
+  .imgWrap.hovered { transform: scale(1.07); }
+
+  .bigImg { width:100%; height:100%; object-fit:cover; border-radius:4px; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+
+  .label { position:absolute; font-weight:700; background:rgba(255,255,255,0.9); border:1px solid #ddd; border-radius:4px; padding:2px 6px; pointer-events:none; }
+  .label.right-down { right:8px; bottom:8px; }
+  .label.left-up { left:8px; top:8px; }
+
+  .bottom { flex:0 0 auto; padding:8px 12px 12px; border-top:1px solid #ddd; background:#fff; }
+  .indicator { position:relative; height:56px; border:1px solid #ddd; border-radius:8px; background:white; overflow:hidden; }
+  .indicatorImg { position:absolute; top:50%; transform:translateY(-50%); width:56px; height:56px; object-fit:contain; user-select:none; -webkit-user-drag:none; }
+  .indicatorLeft { left:8px; }
+  .indicatorRight { right:8px; }
+  .indicatorMoving { left:8px; }
+  .progressRed { position:absolute; top:8px; bottom:8px; left:72px; width:0; background:linear-gradient(to right, rgba(255,0,0,0.25), rgba(255,0,0,0.35)); border-radius:6px; pointer-events:none; }
+
+  /* Animation effects */
+  @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+  @keyframes slideUp { from {transform:translateY(40px); opacity:0;} to {transform:translateY(0); opacity:1;} }
+  @keyframes zoomIn { from {transform:scale(0.5); opacity:0;} to {transform:scale(1); opacity:1;} }
+
+  .anim-fade { animation: fadeIn 0.6s ease forwards; }
+  .anim-slide-up { animation: slideUp 0.6s ease forwards; }
+  .anim-zoom-in { animation: zoomIn 0.6s ease forwards; }
+
+
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="topbar">
+      <div class="title" id="title">Ready</div>
+      <div class="score" id="score">SCORE (Количество верных ответов): 0</div> 
+    </div>
+
+    <div class="middle"></div>
+
+    <div class="bottom">
+	<button id="myButton" title="Skip_to_next">ПЕРЕЙТИ К СЛЕДУЮЩЕМУ ВОПРОСУ</button> <!-- GO TO NEXT QUESTION -->
+      <div class="indicator">
+        <img class="indicatorImg indicatorLeft" id="indicatorLeft" alt="left" />
+        <img class="indicatorImg indicatorMoving" id="indicatorMoving" alt="moving" />
+        <img class="indicatorImg indicatorRight" id="indicatorRight" alt="right" />
+        <div class="progressRed" id="progressRed"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Parameters
+  const btn = document.getElementById('myButton');
+  const constBoarders = false; // true: move/scale inside borders; false: move/scale the entire card
+  const move_direction = "up-and-down"; // "up-and-down" | "left-and-right" | "far-and-near"
+  const place_names_images = "right-and-down"; // "right-and-down" | "left-and-up" | "no"
+  const big_size_images_coefficient = 1; // global scale for big images
+  const time_after_click = 1400*300; // ms to display aClick/bcClick before advancing
+  const delay_of_subsequent_appearence_ms = 50; // 0 = simultaneous; >0 two-phase sequential reveal
+  const timesCardsAppearSlowerThanIndicator = 3; //MY
+  const appear_animation = "zoom-in"; // "", "fade", "slide-up", "zoom-in"
+  const imgFolder = 'how_AI_thinks_img/';
+  const AMBIENT_DURATION_MS = 2000; //not used if no mp3
+  const INDICATOR_FULL_MS = 3000*30;
+  const CLICK_AUDIO_A = imgFolder+'a.mp3';
+  const CLICK_AUDIO_BC = imgFolder+'bc.mp3';
+
+  const number_of_big_size_images = [4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4]; //MY
+  const names_of_big_size_images = [ //MY
+    ['','','',''],    ['','','',''],    ['','','',''],    ['','','',''],
+	['','','',''],	  ['','','',''],    ['','','',''],    ['','','',''],
+    ['','','',''],	  ['','','',''],    ['','','',''],    ['','','',''],
+    ['','','',''],	  ['','','',''],    ['','','',''],    ['','','',''],
+    ['','','',''],    ['','','','']
+  ];
+
+//MY
+/*
+  const screens = [ 
+    { title:'These flights, according to AI, are different types of long-distance "flights of your dreams". And the only one is considered by AI as "flight well-planned".  Which one?', 
+	titleAfter:'Probably, long-distance "flight well-planned" is frequently used with (and, therefore, is  associated in AI-networks with) planning sleeping during flight from evening-to-morning.',
+	indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' },
+    { title:'These are different types of expensive (according to AI) flights. But only one among them is considered, by AI, as around-the-world. Which one?', 
+	titleAfter:'Probably, "around-the-world" is frequently used in less-real-contexts and is associated with, for example, books of Jules Verne..',	
+	indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'2.mp3', background:imgFolder+'2background.jpg' },
+    { title:'These are different types of "worst flights". As it was clear from the previous pictures, picture with sleeping on the plane is frequently associated with long-distance flights. And which picture is associated with short-distance flight?', 
+	titleAfter:'Probably, combination of "short-time" (which is is associated also with brief, intense, violent) and "worst" (which is is associated also with disorder) together is associated with vandalism.',
+	indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'3.mp3', background:imgFolder+'3background.jpg' },
+    { title:'These are different types of historical excursions. One of them is considered as longest and time-consuming. Which one?', 
+	titleAfter:'It is clear that excursion is associated with walk, and one of pictures shows very long and time-consuming walk.',
+	indicator:{left:imgFolder+'4i_left.jpg', movingPrefix:imgFolder+'4i_moving', right:imgFolder+'4i_right.jpg'}, ambient:imgFolder+'4.mp3', background:imgFolder+'4background.jpg' },
+    { title:'These are the same historical excursions. One of them is considered as "historical excursion of your dreams". Which one?', 
+	titleAfter:'It is clear that, in this case, "of your dreams" was associated literally with history-induced dreams.',
+	indicator:{left:imgFolder+'5i_left.jpg', movingPrefix:imgFolder+'5i_moving', right:imgFolder+'5i_right.jpg'}, ambient:imgFolder+'5.mp3', background:imgFolder+'5background.jpg' },	
+    { title:'These are different types of sea/river voyages. One of them is considered as longest and time-consuming. Which one?', 
+	titleAfter:'Probably voyage in slow-boat at the open-sea, towards sun and horizon, is associated with optimistic, but long and time-consuming travel.',
+	indicator:{left:imgFolder+'6i_left.jpg', movingPrefix:imgFolder+'6i_moving', right:imgFolder+'6i_right.jpg'}, ambient:imgFolder+'6.mp3', background:imgFolder+'6background.jpg' },
+    { title:'These are different types of sea/river travel. One of them is considered as shortest. Which one?', 
+	titleAfter:'Probably the most simple and "straight-forward" picture with shortage of details is associated with "short".',
+	indicator:{left:imgFolder+'7i_left.jpg', movingPrefix:imgFolder+'7i_moving', right:imgFolder+'7i_right.jpg'}, ambient:imgFolder+'7.mp3', background:imgFolder+'7background.jpg' },
+    { title:'These are different types of travelling by bus. One of them is considered as overnight. Which one?', 
+	titleAfter:'Here AI displays deep understanding of overnight travel, which is not simply travel during the night hours, but overnight organisation, including night stops at special places.',
+	indicator:{left:imgFolder+'8i_left.jpg', movingPrefix:imgFolder+'8i_moving', right:imgFolder+'8i_right.jpg'}, ambient:imgFolder+'8.mp3', background:imgFolder+'8background.jpg' },
+    { title:'These are different types of trips on the Ganges-river. One of them is considered as luxury for rich people. Which one?', 
+	titleAfter:'It is clear that "luxury" is frequently shown with drinking champagne, cocktail-party dresses and (together with India) white suits.',
+	indicator:{left:imgFolder+'9i_left.jpg', movingPrefix:imgFolder+'9i_moving', right:imgFolder+'9i_right.jpg'}, ambient:imgFolder+'9.mp3', background:imgFolder+'9background.jpg' },
+    { title:'These are different types of river trips. One of them is considered as Ganges river trip. Which one?', 
+	titleAfter:'Probably, meditation attributes, mountains far away and indian clothes led to one of these pictures.',
+	indicator:{left:imgFolder+'10i_left.jpg', movingPrefix:imgFolder+'10i_moving', right:imgFolder+'10i_right.jpg'}, ambient:imgFolder+'10.mp3', background:imgFolder+'10background.jpg' },		
+    { title:'These are different types of travelling by river. One of them is considered as travelling by Amazon river. Which one?', 
+	titleAfter:'Probably, parrots were added in association with Amazon river.',
+	indicator:{left:imgFolder+'11i_left.jpg', movingPrefix:imgFolder+'11i_moving', right:imgFolder+'11i_right.jpg'}, ambient:imgFolder+'11.mp3', background:imgFolder+'11background.jpg' },
+    { title:'These are different types of rainforest expeditions. One of them is considered as your dream expedition. Which one?', 
+	titleAfter:'It is clear that a lot of sun is always associated by AI with optimism, dreams, etc. Moreover, travelling together is sometimes (especially in dangerous places) considered as more positive then travelling alone.',
+	indicator:{left:imgFolder+'12i_left.jpg', movingPrefix:imgFolder+'12i_moving', right:imgFolder+'12i_right.jpg'}, ambient:imgFolder+'12.mp3', background:imgFolder+'12background.jpg' },
+    { title:'These are different types of unfortunate old-style sea trips. One of them is considered as expedition. Which one?', 
+	titleAfter:'Probably, storms for expedition is considered normal, whereas shipwreck and necessity to land is associated with failure and misfortune.',
+	indicator:{left:imgFolder+'13i_left.jpg', movingPrefix:imgFolder+'13i_moving', right:imgFolder+'13i_right.jpg'}, ambient:imgFolder+'13.mp3', background:imgFolder+'13background.jpg' },
+    { title:'These are different types of yacht travelling. One of them is considered as well-planned. Which one?', 
+	titleAfter:'Probably, here planning was associated by AI with lack of romantics (such as sunsets, birds, etc, seen on other pictures).',
+	indicator:{left:imgFolder+'14i_left.jpg', movingPrefix:imgFolder+'14i_moving', right:imgFolder+'14i_right.jpg'}, ambient:imgFolder+'14.mp3', background:imgFolder+'14background.jpg' },
+    { title:'These are different types of historical excursions. One of them is considered as well-planned. Which one?', 
+	titleAfter:'Probably, good planning is often associated with timing, which is frequently symbolised by clocks, therefore, "historical clocks" led to Big Ben images.',
+	indicator:{left:imgFolder+'15i_left.jpg', movingPrefix:imgFolder+'15i_moving', right:imgFolder+'15i_right.jpg'}, ambient:imgFolder+'15.mp3', background:imgFolder+'15background.jpg' },	
+    { title:'These are different types of excursions to ruins. One of them is considered as worst excursion. Which one?', 
+	titleAfter:'It is clear by cloudy gloomy weather, which is almost always associated by AI with bad mood.',
+	indicator:{left:imgFolder+'16i_left.jpg', movingPrefix:imgFolder+'16i_moving', right:imgFolder+'16i_right.jpg'}, ambient:imgFolder+'16.mp3', background:imgFolder+'16background.jpg' },
+    { title:'These are different types of travel by train. One of them is considered as the shortest. Which one?', 
+	titleAfter:'It is tempting to say that strange configuration of compartment lead to the failed and, therefore, shortest travel. But, most probably (similarly as with shortest sea-trip) the simplicity of picture itself is the result of association with the word "shortest".',
+	indicator:{left:imgFolder+'17i_left.jpg', movingPrefix:imgFolder+'17i_moving', right:imgFolder+'17i_right.jpg'}, ambient:imgFolder+'17.mp3', background:imgFolder+'17background.jpg' },
+    { title:'Congratulations! You have guessed most of difficult AI-generated pictures. Here is the bonus game: this is 2 page-essay on travel by train. Is it written by AI or by human? Click on a page which was written with the help of AI.', 
+	titleAfter:'Both pages are written by human (it is taken from non-linear interactive net-structured collection "Индульгенция людей").',
+	indicator:{left:imgFolder+'18i_left.jpg', movingPrefix:imgFolder+'18i_moving', right:imgFolder+'18i_right.jpg'}, ambient:imgFolder+'18.mp3', background:imgFolder+'18background.jpg' }
+  ];
+  */
+  //MY
+    const screens = [ 
+    { title:'Эти рейсы, по мнению ИИ, представляют собой разные виды дальних «полетов вашей мечты». И только один из них рассматривается ИИ как «хорошо спланированный полет». Какой именно?', 
+	titleAfter:'Вероятно, дальний «хорошо спланированный полет» ассоциируется в AI-сетях с планированием сна во время полета, не нарушающим обычного удобного расписания: с вечера до утра.',
+	indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' },
+    { title:'Это разные виды дорогих (по мнению ИИ) перелетов. Но только один из них рассматривается ИИ как кругосветный. Какой именно?', 
+	titleAfter:'Вероятно, термин «кругосветный» чаще используется в художественной литературе (например фантастике), то есть, чаще используется в менее реальных контекстах и ассоциируется, например, с книгами Жюля Верна.',	
+	indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'2.mp3', background:imgFolder+'2background.jpg' },
+    { title:'Это разные виды «худших рейсов». Как было понятно из первого вопроса, сон в самолете часто встречается в контексте дальних перелетов, и следовательно, ИИ ассоциирует его с дальними перелетами. А какая картина ассоциируется ИИ с полетом на короткие расстояния?', 
+	titleAfter:'Вероятно, сочетание «кратковременного» (которое часто ассоциируется с интенсивным, агрессивным, резким) и «худшего» (которое также ассоциируется с беспорядком) вместе ассоциируются с вандализмом.',
+	indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'3.mp3', background:imgFolder+'3background.jpg' },
+    { title:'Это разные виды исторических экскурсий. Одну из них ИИ считает длительной. Какую именно?', 
+	titleAfter:'Понятно, что экскурсия ассоциируется с прогулкой, и на одной из картинок изображена именно долгая прогулка.',
+	indicator:{left:imgFolder+'4i_left.jpg', movingPrefix:imgFolder+'4i_moving', right:imgFolder+'4i_right.jpg'}, ambient:imgFolder+'4.mp3', background:imgFolder+'4background.jpg' },
+    { title:'Это исторические экскурсии из предыдущего вопроса. Одну из них ИИ считает «исторической экскурсией вашей мечты». Какую именно?', 
+	titleAfter:'Понятно, что в данном случае слова «вашей мечты» ИИ ассоциировал буквально с мечтами, вызванными историей.',
+	indicator:{left:imgFolder+'5i_left.jpg', movingPrefix:imgFolder+'5i_moving', right:imgFolder+'5i_right.jpg'}, ambient:imgFolder+'5.mp3', background:imgFolder+'5background.jpg' },	
+    { title:'Это разные виды морских/речных путешествий. Одно из них ИИ считает самым длительным и трудоемким. Какое именно?', 
+	titleAfter:'Вероятно, плавание на парусной, медленной лодке курсом в открытое море, навстречу солнцу и горизонту, ассоциируется с оптимистичным, но долгим и трудоемким путешествием.',
+	indicator:{left:imgFolder+'6i_left.jpg', movingPrefix:imgFolder+'6i_moving', right:imgFolder+'6i_right.jpg'}, ambient:imgFolder+'6.mp3', background:imgFolder+'6background.jpg' },
+    { title:'Это разные виды морских/речных путешествий. Одно из них рассматривается ИИ как самое короткое. Какое именно?', 
+	titleAfter:'Наверное, самая простая и «прямолинейная» картинка без особых деталей ассоциируется с «краткостью».',
+	indicator:{left:imgFolder+'7i_left.jpg', movingPrefix:imgFolder+'7i_moving', right:imgFolder+'7i_right.jpg'}, ambient:imgFolder+'7.mp3', background:imgFolder+'7background.jpg' },
+    { title:'Это разные виды передвижений на автобусе. Одно из них ИИ считает ночным. Какое именно?', 
+	titleAfter:'Здесь ИИ демонстрирует глубокое понимание ночных поездок, которые представляют собой не просто поездки в ночные часы, но и их организацию, включая ночные остановки в специальных местах.',
+	indicator:{left:imgFolder+'8i_left.jpg', movingPrefix:imgFolder+'8i_moving', right:imgFolder+'8i_right.jpg'}, ambient:imgFolder+'8.mp3', background:imgFolder+'8background.jpg' },
+    { title:'Это разные виды поездок по реке Ганг. ИИ считает одну из них роскошью для богатых людей. Какую именно?', 
+	titleAfter:'Понятно, что «роскошь» часто показана с помощью шампанского, платьев для коктейльных вечеринок и (в случае тропических стран) белых костюмов.',
+	indicator:{left:imgFolder+'9i_left.jpg', movingPrefix:imgFolder+'9i_moving', right:imgFolder+'9i_right.jpg'}, ambient:imgFolder+'9.mp3', background:imgFolder+'9background.jpg' },
+    { title:'Это разные виды речных прогулок. ИИ считает одну из них прогулкой по реке Ганг. Какую именно?', 
+	titleAfter:'Вероятно, атрибуты медитации, горы вдали и сари были добавлены ИИ по ассоциацци с рекой Ганг.',
+	indicator:{left:imgFolder+'10i_left.jpg', movingPrefix:imgFolder+'10i_moving', right:imgFolder+'10i_right.jpg'}, ambient:imgFolder+'10.mp3', background:imgFolder+'10background.jpg' },		
+    { title:'Это разные виды путешествий по реке. ИИ считает одно из них путешествием по Амазонке. Какое именно?', 
+	titleAfter:'Вероятно, ИИ добавил попугаев из-за ассоциации с рекой Амазонкой.',
+	indicator:{left:imgFolder+'11i_left.jpg', movingPrefix:imgFolder+'11i_moving', right:imgFolder+'11i_right.jpg'}, ambient:imgFolder+'11.mp3', background:imgFolder+'11background.jpg' },
+    { title:'Это разные виды экспедиций в тропические и экваториальные леса. Одна из них рассматривается ИИ как «экспедиция вашей мечты». Какая именно?', 
+	titleAfter:'Понятно, что много солнца всегда ассоциируется у ИИ с оптимизмом, мечтами и т.д. Более того, совместное путешествие иногда (особенно в опасных местах) считается у ИИ более позитивным, чем путешествие в одиночку.',
+	indicator:{left:imgFolder+'12i_left.jpg', movingPrefix:imgFolder+'12i_moving', right:imgFolder+'12i_right.jpg'}, ambient:imgFolder+'12.mp3', background:imgFolder+'12background.jpg' },
+    { title:'Это разные виды неудачных морских путешествий прошлых веков. Одно из путешествий ИИ считает экспедицией. Какое именно?', 
+	titleAfter:'Вероятно, штормы для экспедиции считаются нормальными. Поэтому неудача в контексте именно экспедиции, ассоциирцюется у ИИ не со штормом, а с кораблекрушением и необходимостью высадки на берег.',
+	indicator:{left:imgFolder+'13i_left.jpg', movingPrefix:imgFolder+'13i_moving', right:imgFolder+'13i_right.jpg'}, ambient:imgFolder+'13.mp3', background:imgFolder+'13background.jpg' },
+    { title:'Это разные виды путешествий на яхте. Одно из них ИИ считает хорошо спланированным. Какое именно?', 
+	titleAfter:'Вероятно, здесь планирование ассоциировалось у ИИ с отсутствием романтики (например, с отсутствием закатов, птиц и т.д., которые можно увидеть на других картинках).',
+	indicator:{left:imgFolder+'14i_left.jpg', movingPrefix:imgFolder+'14i_moving', right:imgFolder+'14i_right.jpg'}, ambient:imgFolder+'14.mp3', background:imgFolder+'14background.jpg' },
+    { title:'Это разные виды исторических экскурсий. ИИ считает одну из них хорошо спланированной. Какую именно?', 
+	titleAfter:'Вероятно, хорошее планирование ассоциируется у ИИ со временем, которое часто символизируют часы, поэтому "историчность" и "часы" - проассоциировались у ИИ с изображениями Биг-Бена.',
+	indicator:{left:imgFolder+'15i_left.jpg', movingPrefix:imgFolder+'15i_moving', right:imgFolder+'15i_right.jpg'}, ambient:imgFolder+'15.mp3', background:imgFolder+'15background.jpg' },	
+    { title:'Это разные виды экскурсий к руинам. ИИ считает одну из них худшей экскурсией. Какую именно?', 
+	titleAfter:'Это видно по пасмурной хмурой погоде, которая почти всегда ассоциируется у ИИ с плохим настроением.',
+	indicator:{left:imgFolder+'16i_left.jpg', movingPrefix:imgFolder+'16i_moving', right:imgFolder+'16i_right.jpg'}, ambient:imgFolder+'16.mp3', background:imgFolder+'16background.jpg' },
+    { title:'Это разные виды путешествий на поезде. ИИ считает одно из них самым коротким. Какое именно?', 
+	titleAfter:'Заманчиво сказать, что странная конфигурация купе - результат ассоциации с неудачным и, следовательно, кратчайшим путешествием. Но, скорее всего (как и в случае с кратчайшим морским путешествием) простота самой картины является результатом ассоциации со словами «самый короткий».',
+	indicator:{left:imgFolder+'17i_left.jpg', movingPrefix:imgFolder+'17i_moving', right:imgFolder+'17i_right.jpg'}, ambient:imgFolder+'17.mp3', background:imgFolder+'17background.jpg' },
+    { title:'Браво! Вы прошли тест Аванмонги-Мищенко по определению того что именно хотел изобразить ИИ. Призовой вопрос: перед вами 2-страничное эссе, тоже о путешествии на поезде. Написано ли оно ИИ или человеком? Кликните на ту страницу, которая написана ИИ (или на варианты "обе" или "ни одна")', 
+	titleAfter:'Ни одна из страниц этого эссе не написана ИИ (оно взято из нелинейной интерактивной сетевой книги "Индульгенция людей". Отзывы на этот формат приветствуются на alespsychology@protonmail.com)',
+	indicator:{left:imgFolder+'18i_left.jpg', movingPrefix:imgFolder+'18i_moving', right:imgFolder+'18i_right.jpg'}, ambient:imgFolder+'18.mp3', background:imgFolder+'18background.jpg' }
+  ];
+  
+  const FINAL_BACKGROUND = imgFolder+'FINbackground.jpg';
+  
+
+	linkAIorHIstr = 'https://AlesMishchenko.github.io/tests/how_does_AI_think.html';
+	linkAIorHIstr = 'https://AlesMishchenko.github.io/tests/how_AI_thinks.html';
+
+	linkTypesIstr = 'https://AlesMishchenko.github.io/tests/types_of_intellect.html';
+	linkTypesIstr = 'https://AlesMishchenko.github.io/tests/intellectTypes.html';
+
+	linkSoulDetectstr = 'https://AlesMishchenko.github.io/tests/soul_detectior.html';
+	linkSoulDetectstr = 'https://AlesMishchenko.github.io/tests/soul_detection.html';
+
+	linkALLstr = 'https://AlesMishchenko.github.io/tests/index.html';
+	linkALLstr = 'https://AlesMishchenko.github.io/tests/index.html';
+
+	linkINDULGstr = 'https://AlesMishchenko.github.io/indulgencia';
+	linkINDULGstr = 'https://AlesMishchenko.github.io/indulgencia';
+	
+	linkTGstr = 'https://t.me/mymamume';
+	linkTGstr = 'https://t.me/mymamume';
+
+	SCOREstr1 = 'Your score: ';
+	SCOREstr1 = 'Количество правильных ответов: ';
+	SCOREstr2 = '/'+screens.length.toString();
+
+	finSCOREstr1 = 'Percentage of correct answers: ';
+	finSCOREstr1 = 'Процент правильных ответов: ';
+
+	finSCOREstr2 = '. You can rerun the Avanmonga-Mishchenko test again, try other tests or read abovementioned interactive essays, etc:';
+	finSCOREstr2 = '. Вы можете пройти тест Аванмонги-Мищенко снова, пройти другие тесты или почитать вышеупомянутые интерактивные эссе, итд:';
+
+	buttonAIorHIstr = 'Avanmonga-Mishchenko test on guessing what exactly AI wanted to draw  : do you understand the way AI thinks?' ; //'this test again'; // 
+	buttonAIorHIstr = 'Тест Аванмонги-Мищенко на определение того что именно хотел изобразить ИИ : понимаете ли Вы как мыслит ИИ? '; //'этот тест заново'; // 
+	//buttonAIorHIstr = 'This test again';
+	//buttonAIorHIstr = 'Этот тест заново';
+	
+	buttonSoulDetectstr = 'Animated Turing-Mishchenko test on existence of conscious & awareness : do you have soul,  is it sleeping or awake?  ';
+	buttonSoulDetectstr = "Анимированный тест Тьюринга-Мищенко наличия самосознания и осознанности : есть ли у Вас душа,  насколько она проявлена?  ";
+	buttonSoulDetectstr = 'This test again';
+	buttonSoulDetectstr = 'Этот тест заново';
+	
+	buttonDetailedSoulDetectstr = 'Detailed Turing-Mishchenko test on existence of conscious & awareness : details on existence, sleeping or awakeness of soul ';
+	buttonDetailedSoulDetectstr = "Подробный тест Тьюринга-Мищенко наличия самосознания и осознанности : тест наличия, проявленности и пробуждённости души ";
+	//buttonDetailedSoulDetectstr = 'This test again';
+	//buttonDetailedSoulDetectstr = 'Этот тест заново';
+	
+	buttonTypesIstr = 'Test-questionaire of Catherine Khodorova on different types of intellect : do you know all sides of your intellect?  ';
+	buttonTypesIstr = 'Тест-опрос Екатерины Ходровой на различные типы интеллекта : знаете ли Вы все стороны своего интеллекта?  ';
+	//buttonTypesIstr = 'This test again';
+	//buttonTypesIstr = 'Этот тест заново';
+	
+	buttonALLstr = 'All tests, literature texts and telegram-channels related to awareness';
+	buttonALLstr = 'Все тесты, литературные тексты и телеграм-каналы, связанные с самосознанием и осознаностью';
+
+	buttonINDULGstr = 'Abovementioned interactive essays';
+	buttonINDULGstr = 'Вышеупомянутые интерактивные эссе';
+
+  // DOM
+  const appEl = document.getElementById('app');
+  const titleEl = document.getElementById('title');
+  const scoreEl = document.getElementById('score');
+  const middleEl = document.querySelector('.middle');
+  const indicatorLeftEl = document.getElementById('indicatorLeft');
+  const indicatorMovingEl = document.getElementById('indicatorMoving');
+  const indicatorRightEl = document.getElementById('indicatorRight');
+  const progressRedEl = document.getElementById('progressRed');
+
+  // State
+  let currentScreen = 0;
+  let score = 0;
+  let ambientAudio = null;
+  let clickAudio = null;
+  let rafId = null;
+  let startTimestamp = 0;
+  let indicatorStartTimestamp = 0;
+  let indicatorDoneTriggered = false;
+  let transitioning = false;
+
+  const letters = ['a','b','c','d','e','f','g','h','i','k','l','n','o'];
+
+  // Utils
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+  function makeAudio(src) {
+    const a = new Audio(src);
+    a.preload = 'auto';
+    a.crossOrigin = 'anonymous';
+    return a;
+  }
+  function stopAudio(a){ if(a){ try{ a.pause(); a.currentTime=0; }catch{} } }
+  function setScore(){ scoreEl.textContent = SCOREstr1  + score +SCOREstr2; }
+  function clearMiddle(){ middleEl.innerHTML=''; }
+
+  // Build one card
+  function buildCard(screenIndex, letter, labelText){
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.key = letter;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'imgWrap';
+    wrap.dataset.key = letter;
+
+    const img = document.createElement('img');
+    img.className = 'bigImg';
+    img.src = imgFolder+`${screenIndex+1}${letter}.jpg`;
+    img.alt = labelText || letter;
+
+    wrap.appendChild(img);
+    card.appendChild(wrap);
+
+    // Place label if enabled
+    if (place_names_images !== 'no' && labelText) {
+      const label = document.createElement('div');
+      label.className = 'label ' + (place_names_images === 'left-and-up' ? 'left-up' : 'right-down');
+      label.textContent = labelText;
+      card.appendChild(label);
+    }
+
+    // Hover/touch enlarge per constBoarders
+    const addHover = () => { (constBoarders ? wrap : card).classList.add('hovered'); };
+    const removeHover = () => { wrap.classList.remove('hovered'); card.classList.remove('hovered'); };
+    card.addEventListener('pointerenter', addHover, { passive:true });
+    card.addEventListener('pointerleave', removeHover, { passive:true });
+    card.addEventListener('pointercancel', removeHover, { passive:true });
+    card.addEventListener('touchstart', addHover, { passive:true });
+    card.addEventListener('touchend', removeHover, { passive:true });
+
+    // Click behavior
+    wrap.addEventListener('click', () => onBigImageClick(letter, img, screenIndex)); //MY screenIndex
+
+    return card;
+  }
+
+  // Click handler: swap image, set title, play a/bc once, then advance after time_after_click
+  function onBigImageClick(letter, imgEl, index){ //MY index
+    if (transitioning) return;
+    transitioning = true;
+
+    stopAudio(ambientAudio);
+
+	const cfg = screens[index]; //MY
+
+    const isA = (letter === 'a');
+    const clickSrc = isA ? CLICK_AUDIO_A : CLICK_AUDIO_BC;
+    const replacementSrc = isA ? imgFolder+'aClick.jpg' : imgFolder+'bcClick.jpg';
+    //const replacementTitle = cfg.titleAfter; //WAS
+	const replacementTitle = isA ? 'Верно. Выбранное изображение подходит: '+cfg.titleAfter : 'Неверно. Обратите внимание на другие изображения: '+cfg.titleAfter; //MY
+	//Not correct. Take a look at other images and at the following probable "reasoning" used by AI: 
+	//Correct. ¨Probable "reasoning" used by AI
+    if (isA) { score += 1; setScore(); }
+    imgEl.src = replacementSrc;
+    titleEl.textContent = replacementTitle;
+
+    stopAudio(clickAudio);
+    clickAudio = makeAudio(clickSrc);
+    const p = clickAudio.play();
+    if (p && typeof p.catch === 'function') { p.catch(()=>{}); }
+
+    setTimeout(goToNextScreen, time_after_click); //MY TODO add click listener
+  }
+
+  // Render screen; two-phase reveal when delay_of_subsequent_appearence_ms > 0
+  function renderScreen(index){
+    const cfg = screens[index];
+    setScore();
+    clearMiddle();
+    transitioning = false;
+    indicatorDoneTriggered = false;
+
+    // Background, title, and indicator sources set immediately
+    appEl.style.backgroundImage = `url('${cfg.background}')`;
+    titleEl.textContent = cfg.title;
+    indicatorLeftEl.src = cfg.indicator.left;
+    indicatorRightEl.src = cfg.indicator.right;
+    indicatorMovingEl.src = `${cfg.indicator.movingPrefix}0.jpg`;
+
+    // Build items and randomize order
+    const requestedN = number_of_big_size_images[index] || 0;
+    const labels = names_of_big_size_images[index] || [];
+    const maxN = Math.min(requestedN, letters.length, labels.length || requestedN);
+    const items = [];
+    for (let j = 0; j < maxN; j++) {
+      items.push({ letter: letters[j], labelText: labels[j] || '' });
+    }
+    shuffle(items);
+    const cards = items.map(({letter,labelText}) => buildCard(index, letter, labelText));
+    cards.forEach(card => { card.style.opacity=0; middleEl.appendChild(card); });
+
+    // Reveal strategy
+    if(delay_of_subsequent_appearence_ms>0){
+      // Two-phase: non-images first
+      const nonImageActions = [
+        ()=>{titleEl.style.visibility='visible';},
+        ()=>{indicatorLeftEl.style.visibility='visible';},
+        ()=>{indicatorRightEl.style.visibility='visible';},
+        ()=>{indicatorMovingEl.style.visibility='visible';},
+        ()=>{progressRedEl.style.visibility='visible';}
+      ];
+      shuffle(nonImageActions);
+      nonImageActions.forEach((fn,i)=>setTimeout(fn,i*delay_of_subsequent_appearence_ms));
+      const offset = nonImageActions.length*delay_of_subsequent_appearence_ms;
+      // Then big images
+      shuffle(cards).forEach((card,i)=>{
+        setTimeout(()=>{
+          card.style.opacity=1;
+          if(appear_animation){
+            card.classList.add('anim-'+appear_animation);
+          }
+        }, offset+i*delay_of_subsequent_appearence_ms*timesCardsAppearSlowerThanIndicator); //MY
+      });
+    } else {
+      titleEl.style.visibility='visible';
+      indicatorLeftEl.style.visibility='visible';
+      indicatorRightEl.style.visibility='visible';
+      indicatorMovingEl.style.visibility='visible';
+      progressRedEl.style.visibility='visible';
+      cards.forEach(card=>{
+        card.style.opacity=1;
+        if(appear_animation){
+          card.classList.add('anim-'+appear_animation);
+        }
+      });
+    }
+
+    // Ambient audio (optional; stop after 20s; ignore autoplay errors)
+    stopAudio(ambientAudio);
+    ambientAudio = makeAudio(cfg.ambient);
+    const ap = ambientAudio.play();
+    if (ap && typeof ap.catch === 'function') { ap.catch(()=>{}); }
+    setTimeout(() => stopAudio(ambientAudio), AMBIENT_DURATION_MS);
+
+    // Start timestamps (indicator won’t restart on resize)
+    startTimestamp = performance.now();
+    indicatorStartTimestamp = startTimestamp;
+
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // Next / final
+  function goToNextScreen(){
+    stopAudio(ambientAudio);
+    stopAudio(clickAudio);
+    cancelAnimationFrame(rafId);
+
+    currentScreen += 1;
+    if (currentScreen < screens.length) {
+      renderScreen(currentScreen);
+    } else {
+      showFinalScreen();
+    }
+  }
+  
+  btn.addEventListener('click', function () { setTimeout(goToNextScreen, 100);  });
+  
+  
+  function doubleButtonFontSize(docPart) {
+    // Select all button elements
+    const buttons = docPart.querySelectorAll('button');
+
+    buttons.forEach(button => {
+        // Get computed font size (includes inherited styles)
+        const computedSize = window.getComputedStyle(button).fontSize;
+
+        // Parse numeric value and unit (usually 'px')
+        const sizeValue = parseFloat(computedSize);
+        const sizeUnit = computedSize.replace(sizeValue, '');
+
+        if (!isNaN(sizeValue)) {
+            // Double the size and apply it back
+            button.style.fontSize = (sizeValue * 2) + sizeUnit;
+        }
+    });
+  }
+  
+  function showFinalScreen(){
+    stopAudio(ambientAudio);
+    stopAudio(clickAudio);
+    cancelAnimationFrame(rafId);
+
+    appEl.style.backgroundImage = `url('${FINAL_BACKGROUND}')`;
+    titleEl.textContent = finSCOREstr1  + Math.floor(100*score/screens.length) + finSCOREstr2;
+
+    clearMiddle();
+    document.querySelector('.bottom').innerHTML = '';
+
+    const actions = document.createElement('div');
+    actions.className = 'finalActions';
+
+    const to1Btn = document.createElement('button');
+    to1Btn.className = 'finalBtn';
+    to1Btn.textContent = buttonAIorHIstr ;
+    to1Btn.addEventListener('click', () => { window.location.href = linkAIorHIstr; });
+
+    const to2Btn = document.createElement('button');
+    to2Btn.className = 'finalBtn';
+    to2Btn.textContent = buttonSoulDetectstr;
+    to2Btn.addEventListener('click', () => { window.location.href = linkSoulDetectstr; });
+
+    const to3Btn = document.createElement('button');
+    to3Btn.className = 'finalBtn';
+    to3Btn.textContent = buttonTypesIstr;
+    to3Btn.addEventListener('click', () => { window.location.href = linkTypesIstr; });
+
+    const to4Btn = document.createElement('button');
+    to4Btn.className = 'finalBtn';
+    to4Btn.textContent = buttonALLstr;
+    to4Btn.addEventListener('click', () => { window.location.href = linkALLstr; });
+	
+	const to5Btn = document.createElement('button');
+    to5Btn.className = 'finalBtn';
+    to5Btn.textContent = buttonINDULGstr;
+    to5Btn.addEventListener('click', () => { window.location.href = linkINDULGstr; });
+
+    actions.appendChild(to1Btn);
+	actions.appendChild(document.createElement('hr'));
+    actions.appendChild(to2Btn);
+	actions.appendChild(document.createElement('hr'));
+	actions.appendChild(to3Btn);
+	actions.appendChild(document.createElement('hr'));
+    actions.appendChild(to4Btn);
+	actions.appendChild(document.createElement('hr'));
+    actions.appendChild(to5Btn);
+	actions.appendChild(document.createElement('hr'));
+	actions.appendChild(document.createElement('hr'));
+	
+	const minicard = document.createElement('div');
+    minicard.className = 'minicard';
+    const wrap = document.createElement('div');
+    wrap.className = 'imgWrap'; 
+    const img = document.createElement('img');
+    img.className = 'bigImg'; 
+    img.src = '4M.jpg'; 
+    wrap.appendChild(img);
+    minicard.appendChild(wrap);
+    const label = document.createElement('div');
+    label.className = 'label ' + 'right-down';
+    label.textContent = "Ещё: ТГканал Мыслящая Материя Мудрого Метелика"; //labelText; МЫСЛЯЩАЯ МАТЕРИЯ МУДРОГО МЕТЕЛИКА
+    minicard.appendChild(label);		
+	minicard.addEventListener('click', () => { window.location.href = linkTGstr; });
+	actions.appendChild(minicard);
+	
+    middleEl.appendChild(actions);
+	doubleButtonFontSize(actions);
+  }
+
+  // Animation loop: move_direction + global scale + hover enlarge + indicator progress with 8 frames
+  function tick(now){
+    const cards = Array.from(document.querySelectorAll('.card'));
+    cards.forEach((card, idx) => {
+      const wrap = card.querySelector('.imgWrap');
+      const targetEl = constBoarders ? wrap : card;
+
+      const rect = card.getBoundingClientRect();
+      const baseSize = Math.min(rect.width, rect.height);
+      const amp = baseSize * 0.05; // 5% amplitude
+      const phase = idx * Math.PI / 3;
+      const t = (now - startTimestamp) / 1000;
+
+      let translateX = 0;
+      let translateY = 0;
+      let scaleDynamic = 1;
+
+      if (move_direction === 'up-and-down') {
+        translateY = Math.sin(t + phase) * amp;
+      } else if (move_direction === 'left-and-right') {
+        translateX = Math.sin(t + phase) * amp;
+      } else if (move_direction === 'far-and-near') {
+        scaleDynamic = 1 + 0.05 * Math.sin(t + phase); // ±5% pulsing
+      }
+
+      const baseScale = Math.max(0.01, big_size_images_coefficient);
+      const isHovered = targetEl.classList.contains('hovered');
+      const hoverScale = isHovered ? 1.07 : 1;
+
+      const totalScale = baseScale * scaleDynamic * hoverScale;
+      targetEl.style.transform = `translate(${translateX}px, ${translateY}px) scale(${totalScale})`;
+      targetEl.style.transformOrigin = 'center center';
+    });
+
+    updateIndicator(now);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // Indicator progress and auto-advance
+  function updateIndicator(now){
+    const indicatorEl = document.querySelector('.indicator');
+    if (!indicatorEl) return;
+
+    const innerWidth = indicatorEl.clientWidth || 0;
+    const leftStop = 8 + 56;
+    const rightStop = Math.max(leftStop, innerWidth - 8 - 56 - 56);
+
+    const elapsed = now - indicatorStartTimestamp;
+    const p = Math.max(0, Math.min(1, INDICATOR_FULL_MS > 0 ? (elapsed / INDICATOR_FULL_MS) : 0));
+
+    const movingLeft = leftStop + (rightStop - leftStop) * p;
+    indicatorMovingEl.style.left = movingLeft + 'px';
+
+    const redWidth = Math.max(0, movingLeft - leftStop);
+    progressRedEl.style.width = redWidth + 'px';
+    progressRedEl.style.left = leftStop + 'px';
+
+    const cfg = screens[currentScreen];
+    if (cfg && cfg.indicator && cfg.indicator.movingPrefix) {
+      //const frame = Math.min(7, Math.max(0, Math.floor(p * 8)));
+	  const frame = Math.min(0, Math.max(0, Math.floor(p * 8))); //MY
+      indicatorMovingEl.src = `${cfg.indicator.movingPrefix}${frame}.jpg`;
+    }
+
+    if (p >= 1 && !indicatorDoneTriggered && !transitioning) {
+      indicatorDoneTriggered = true;
+      transitioning = true;
+
+      stopAudio(clickAudio);
+      clickAudio = makeAudio(imgFolder+'bc.mp3');
+      const pp = clickAudio.play();
+      setTimeout(goToNextScreen, 1000);
+      if (pp && typeof pp.catch === 'function') { pp.catch(()=>{}); }
+    }
+  }
+
+  // Start
+  renderScreen(0);
+});
+</script>
+</body>
+</html>

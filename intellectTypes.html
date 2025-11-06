@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>знаете ли Вы все стороны своего интеллекта?  тест-опрос на различные типы интеллекта. do you know all sides of your intellect?  test-questionaire on different types of intellect.</title>
+<style>
+  html, body { min-height:100%; margin:0; overflow-y:auto; font-family:sans-serif; background:#fff; color:#111; }
+  .app { display:flex; flex-direction:column; min-height:100vh; background-repeat:repeat; }
+
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#f5f5f5; border-bottom:1px solid #ddd; }
+  .title { font-size:1.2rem; font-weight:600; }
+  .score { font-size:1rem; color:#444; }
+
+  .middle { flex:1 1 auto; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; padding:12px; align-items:center; justify-items:center; }
+
+  .card { position:relative; width:100%; aspect-ratio:3 / 4; max-width:420px; border:1px solid #ddd; border-radius:8px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow:hidden; transition:transform 120ms ease; will-change:transform; }
+  .card.hovered { transform: scale(1.07); }
+    
+  .minicard { position:relative; width:100%; aspect-ratio:3 / 4; max-width:160px; border:1px solid #ddd; border-radius:8px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow:hidden; transition:transform 120ms ease; will-change:transform; }
+  .minicard.hovered { transform: scale(1.07); }
+
+  .imgWrap { position:absolute; inset:8px; display:flex; align-items:center; justify-content:center; transition:transform 120ms ease; will-change:transform; }
+  .imgWrap.hovered { transform: scale(1.07); }
+
+  .bigImg { width:100%; height:100%; object-fit:cover; border-radius:4px; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+
+  .label { position:absolute; font-weight:700; background:rgba(255,255,255,0.9); border:1px solid #ddd; border-radius:4px; padding:2px 6px; pointer-events:none; }
+  .label.right-down { right:8px; bottom:8px; }
+  .label.left-up { left:8px; top:8px; }
+
+  .bottom { flex:0 0 auto; padding:8px 12px 12px; border-top:1px solid #ddd; background:#fff; }
+  .indicator { position:relative; height:56px; border:1px solid #ddd; border-radius:8px; background:white; overflow:hidden; }
+  .indicatorImg { position:absolute; top:50%; transform:translateY(-50%); width:56px; height:56px; object-fit:contain; user-select:none; -webkit-user-drag:none; }
+  .indicatorLeft { left:8px; }
+  .indicatorRight { right:8px; }
+  .indicatorMoving { left:8px; }
+  .progressRed { position:absolute; top:8px; bottom:8px; left:72px; width:0; background:linear-gradient(to right, rgba(255,0,0,0.25), rgba(255,0,0,0.35)); border-radius:6px; pointer-events:none; }
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="topbar">
+      <div class="title" id="title">Ready</div>
+      <div class="score" id="score">SCORE (Количество положительных ответов): 0</div>
+    </div>
+    <div class="middle"></div>
+    <div class="bottom">
+      <div class="indicator">
+        <img class="indicatorImg indicatorLeft" id="indicatorLeft" alt="left" />
+        <img class="indicatorImg indicatorMoving" id="indicatorMoving" alt="moving" />
+        <img class="indicatorImg indicatorRight" id="indicatorRight" alt="right" />
+        <div class="progressRed" id="progressRed"></div>
+      </div>
+    </div>
+  </div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Parameters
+  const constBoarders = true; // true: move/scale inside borders; false: move/scale the entire card
+  const move_direction = "far-and-near"; // "up-and-down" | "left-and-right" | "far-and-near"
+  const place_names_images = "right-and-down"; // "right-and-down" | "left-and-up" | "no"
+  const big_size_images_coefficient = 1; // global scale for big images
+  const time_after_click = 15*100; // ms to display aClick/bcClick before advancing
+  const delay_of_subsequent_appearence_ms = 50; // 0 = simultaneous; >0 two-phase sequential reveal
+  const timesCardsAppearSlowerThanIndicator = 3; //MY
+  const imgFolder = 'intellectTypes_img/';
+  const AMBIENT_DURATION_MS = 20000;  //not used if no mp3
+  const INDICATOR_GOING_FULLTIME_MS = 150*200;
+  const CLICK_AUDIO_A = imgFolder+'a.mp3';
+  const CLICK_AUDIO_BC = imgFolder+'bc.mp3';
+
+  const number_of_big_size_images = [3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3];
+  const names_of_big_size_images = [
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],	
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+  	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],
+	['Полностью соглашусь',	'Частично соглашусь',	'Не соглашусь'],	
+	
+  ];
+
+  const screens = [ //MY
+{title:'Вопрос в области:  Ментальный аналитический интеллект (IQ) : Я легко замечаю закономерности и связи между различными фактами. ', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Ментальный аналитический интеллект (IQ):  Мне нравится решать математические задачи и головоломки. ', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Ментальный аналитический интеллект (IQ) : Я быстро анализирую новую информацию и делаю логические выводы. ', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Чувственно-эмоциональный интеллект (SEQ):  Я осознаю свои эмоции и понимаю, почему они возникают. ', titleAfter:'',indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'2background.jpg' }, 
+{title:'Вопрос в области:  Чувственно-эмоциональный интеллект (SEQ) : Я умею управлять своими эмоциями в сложных ситуациях. ', titleAfter:'',indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'2background.jpg' }, 
+{title:'Вопрос в области:  Чувственно-эмоциональный интеллект (SEQ) : Я легко распознаю эмоции других людей и сочувствую им. ', titleAfter:'',indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'2background.jpg' }, 
+{title:'Вопрос в области:  Вербально-лингвистический интеллект : Я люблю читать и легко усваиваю информацию, полученную через чтение. ', titleAfter:'',indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'3background.jpg' }, 
+{title:'Вопрос в области:  Вербально-лингвистический интеллект: У меня хорошо развито умение убеждать и излагать свои мысли словами. ', titleAfter:'',indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'3background.jpg' }, 
+{title:'Вопрос в области:  Вербально-лингвистический интеллект : Я чувствую и понимаю тонкости языка и его вибрационный код. ', titleAfter:'',indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'3background.jpg' }, 
+{title:'Вопрос в области:  Визуально-пространственный интеллект:  Я легко ориентируюсь в незнакомых местах. ', titleAfter:'',indicator:{left:imgFolder+'4i_left.jpg', movingPrefix:imgFolder+'4i_moving', right:imgFolder+'4i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'4background.jpg' }, 
+{title:'Вопрос в области:  Визуально-пространственный интеллект: Мне нравится работать с картами, чертежами и схемами. ', titleAfter:'',indicator:{left:imgFolder+'4i_left.jpg', movingPrefix:imgFolder+'4i_moving', right:imgFolder+'4i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'4background.jpg' }, 
+{title:'Вопрос в области:  Визуально-пространственный интеллект:  Я представляю объекты в трехмерном пространстве без труда. ', titleAfter:'',indicator:{left:imgFolder+'4i_left.jpg', movingPrefix:imgFolder+'4i_moving', right:imgFolder+'4i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'4background.jpg' }, 
+{title:'Вопрос в области:  Телесно-кинестетический интеллект:  Я чувствую свое тело и понимаю его сигналы. ', titleAfter:'',indicator:{left:imgFolder+'10i_left.jpg', movingPrefix:imgFolder+'10i_moving', right:imgFolder+'10i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'10background.jpg' }, 
+{title:'Вопрос в области:  Телесно-кинестетический интеллект: У меня хорошо развита моторика и координация движений. ;', titleAfter:'',indicator:{left:imgFolder+'10i_left.jpg', movingPrefix:imgFolder+'10i_moving', right:imgFolder+'10i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'10background.jpg' }, 
+{title:'Вопрос в области: Телесно-кинестетический интеллект : Я люблю заниматься физической активностью и спортом. ', titleAfter:'',indicator:{left:imgFolder+'10i_left.jpg', movingPrefix:imgFolder+'10i_moving', right:imgFolder+'10i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'10background.jpg' }, 
+{title:'Вопрос в области:  Сексуальный интеллект : Я осознаю свои сексуальные предпочтения и комфортно с ними. ', titleAfter:'',indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'2background.jpg' }, 
+{title:'Вопрос в области:  Сексуальный интеллект : Я могу открыто общаться о своих сексуальных чувствах и желаниях. ;', titleAfter:'',indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'2background.jpg' }, 
+{title:'Вопрос в области: Сексуальный интеллект: Сексуальность является важной и гармоничной частью моей жизни. ;', titleAfter:'',indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'2background.jpg' }, 
+{title:'Вопрос в области: Межличностный интеллект:  Я легко нахожу общий язык с разными людьми. ', titleAfter:'',indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'3.mp3', background:imgFolder+'3background.jpg' }, 
+{title:'Вопрос в области:  Межличностный интеллект : Я умею сопереживать и понимать чувства других. ', titleAfter:'',indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'3.mp3', background:imgFolder+'3background.jpg' }, 
+{title:'Вопрос в области:  Межличностный интеллект : Я эффективно работаю в команде и легко устанавливаю контакты. ', titleAfter:'',indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'3.mp3', background:imgFolder+'3background.jpg' }, 
+{title:'Вопрос в области:  Командный интеллект : Я чувствую себя частью коллектива и стремлюсь к общим целям.', titleAfter:'',indicator:{left:imgFolder+'11i_left.jpg', movingPrefix:imgFolder+'11i_moving', right:imgFolder+'11i_right.jpg'}, ambient:imgFolder+'11.mp3', background:imgFolder+'11background.jpg' }, 
+{title:'Вопрос в области:  Командный интеллект : Я чувствую себя частью коллектива и стремлюсь к общим целям.', titleAfter:'',indicator:{left:imgFolder+'11i_left.jpg', movingPrefix:imgFolder+'11i_moving', right:imgFolder+'11i_right.jpg'}, ambient:imgFolder+'11.mp3', background:imgFolder+'11background.jpg' }, 
+{title:'Вопрос в области:  Командный интеллект : Я чувствую себя частью коллектива и стремлюсь к общим целям.', titleAfter:'',indicator:{left:imgFolder+'11i_left.jpg', movingPrefix:imgFolder+'11i_moving', right:imgFolder+'11i_right.jpg'}, ambient:imgFolder+'11.mp3', background:imgFolder+'11background.jpg' }, 
+{title:'Вопрос в области:  Игровой интеллект : Я нахожу радость в играх и шутках.', titleAfter:'',indicator:{left:imgFolder+'5i_left.jpg', movingPrefix:imgFolder+'5i_moving', right:imgFolder+'5i_right.jpg'}, ambient:imgFolder+'5.mp3', background:imgFolder+'5background.jpg' }, 
+{title:'Вопрос в области:  Игровой интеллект : Я умею превращать рутину в увлекательную игру.', titleAfter:'',indicator:{left:imgFolder+'5i_left.jpg', movingPrefix:imgFolder+'5i_moving', right:imgFolder+'5i_right.jpg'}, ambient:imgFolder+'5.mp3', background:imgFolder+'5background.jpg' }, 
+{title:'Вопрос в области:  Игровой интеллект:  Я легко нахожу общий язык с детьми и играю с ними на равных.', titleAfter:'',indicator:{left:imgFolder+'5i_left.jpg', movingPrefix:imgFolder+'5i_moving', right:imgFolder+'5i_right.jpg'}, ambient:imgFolder+'5.mp3', background:imgFolder+'5background.jpg' }, 
+{title:'Вопрос в области:  Социальный интеллект : Я умею адаптироваться к разным социальным ролям.', titleAfter:'',indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'3.mp3', background:imgFolder+'3background.jpg' }, 
+{title:'Вопрос в области:  Социальный интеллект : Я осознаю навыки, необходимые для выполнения различных ролей.', titleAfter:'',indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'3.mp3', background:imgFolder+'3background.jpg' }, 
+{title:'Вопрос в области:  Социальный интеллект : Я умею влиять на людей и распределять социальные роли.', titleAfter:'',indicator:{left:imgFolder+'3i_left.jpg', movingPrefix:imgFolder+'3i_moving', right:imgFolder+'3i_right.jpg'}, ambient:imgFolder+'3.mp3', background:imgFolder+'3background.jpg' }, 
+{title:'Вопрос в области:  Интеллект программирования : Я осознаю свои поведенческие паттерны и умею их изменять.', titleAfter:'',indicator:{left:imgFolder+'6i_left.jpg', movingPrefix:imgFolder+'6i_moving', right:imgFolder+'6i_right.jpg'}, ambient:imgFolder+'6.mp3', background:imgFolder+'6background.jpg' }, 
+{title:'Вопрос в области:  Интеллект программирования : Я умею контролировать свои мысли и направлять внимание.', titleAfter:'',indicator:{left:imgFolder+'6i_left.jpg', movingPrefix:imgFolder+'6i_moving', right:imgFolder+'6i_right.jpg'}, ambient:imgFolder+'6.mp3', background:imgFolder+'6background.jpg' }, 
+{title:'Вопрос в области:  Интеллект программирования : Я интересуюсь созданием программ и алгоритмов.', titleAfter:'',indicator:{left:imgFolder+'6i_left.jpg', movingPrefix:imgFolder+'6i_moving', right:imgFolder+'6i_right.jpg'}, ambient:imgFolder+'6.mp3', background:imgFolder+'6background.jpg' }, 
+{title:'Вопрос в области:  Экзистенциальный интеллект: Меня интересуют глобальные проблемы человечества.', titleAfter:'',indicator:{left:imgFolder+'7i_left.jpg', movingPrefix:imgFolder+'7i_moving', right:imgFolder+'7i_right.jpg'}, ambient:imgFolder+'7.mp3', background:imgFolder+'7background.jpg' }, 
+{title:'Вопрос в области:  Экзистенциальный интеллект : Я задумываюсь о философских вопросах бытия.', titleAfter:'',indicator:{left:imgFolder+'7i_left.jpg', movingPrefix:imgFolder+'7i_moving', right:imgFolder+'7i_right.jpg'}, ambient:imgFolder+'7.mp3', background:imgFolder+'7background.jpg' }, 
+{title:'Вопрос в области:  Экзистенциальный интеллект:  Я умею мыслить категориями, выходящими за рамки личного опыта.', titleAfter:'',indicator:{left:imgFolder+'7i_left.jpg', movingPrefix:imgFolder+'7i_moving', right:imgFolder+'7i_right.jpg'}, ambient:imgFolder+'7.mp3', background:imgFolder+'7background.jpg' }, 
+{title:'Вопрос в области:  Духовный интеллект : Я задумываюсь о вопросах бесконечности и абстрактных категориях.', titleAfter:'',indicator:{left:imgFolder+'7i_left.jpg', movingPrefix:imgFolder+'7i_moving', right:imgFolder+'7i_right.jpg'}, ambient:imgFolder+'7.mp3', background:imgFolder+'7background.jpg' }, 
+{title:'Вопрос в области:  Духовный интеллект:  Я различаю совесть и мораль и следую своей совести.', titleAfter:'',indicator:{left:imgFolder+'7i_left.jpg', movingPrefix:imgFolder+'7i_moving', right:imgFolder+'7i_right.jpg'}, ambient:imgFolder+'7.mp3', background:imgFolder+'7background.jpg' }, 
+{title:'Вопрос в области:  Духовный интеллект : Я чувствую свою миссию и стремлюсь к ее осознанию.', titleAfter:'',indicator:{left:imgFolder+'7i_left.jpg', movingPrefix:imgFolder+'7i_moving', right:imgFolder+'7i_right.jpg'}, ambient:imgFolder+'7.mp3', background:imgFolder+'7background.jpg' }, 
+{title:'Вопрос в области:  Сердечный интеллект : Я чувствую отклик своего сердца на события и людей.', titleAfter:'',indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'2.mp3', background:imgFolder+'2background.jpg' }, 
+{title:'Вопрос в области:  Сердечный интеллект : Я способен любить и развивать качества сердца.', titleAfter:'',indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'2.mp3', background:imgFolder+'2background.jpg' }, 
+{title:'Вопрос в области:  Сердечный интеллект : Я умею делать выбор, опираясь на чувства сердца.', titleAfter:'',indicator:{left:imgFolder+'2i_left.jpg', movingPrefix:imgFolder+'2i_moving', right:imgFolder+'2i_right.jpg'}, ambient:imgFolder+'2.mp3', background:imgFolder+'2background.jpg' }, 
+{title:'Вопрос в области:  Эстетический интеллект : Я ценю красоту и гармонию в окружающем мире.', titleAfter:'',indicator:{left:imgFolder+'11i_left.jpg', movingPrefix:imgFolder+'11i_moving', right:imgFolder+'11i_right.jpg'}, ambient:imgFolder+'11.mp3', background:imgFolder+'11background.jpg' }, 
+{title:'Вопрос в области:  Эстетический интеллект : Я имею хорошее чувство стиля и дизайна.', titleAfter:'',indicator:{left:imgFolder+'11i_left.jpg', movingPrefix:imgFolder+'11i_moving', right:imgFolder+'11i_right.jpg'}, ambient:imgFolder+'11.mp3', background:imgFolder+'11background.jpg' }, 
+{title:'Вопрос в области:  Эстетический интеллект : Я умею создавать красивые и гармоничные вещи.', titleAfter:'',indicator:{left:imgFolder+'11i_left.jpg', movingPrefix:imgFolder+'11i_moving', right:imgFolder+'11i_right.jpg'}, ambient:imgFolder+'11.mp3', background:imgFolder+'11background.jpg' }, 
+{title:'Вопрос в области:  Музыкально-ритмический интеллект : Я чувствую ритм и мелодию в музыке и движениях.', titleAfter:'',indicator:{left:imgFolder+'8i_left.jpg', movingPrefix:imgFolder+'8i_moving', right:imgFolder+'8i_right.jpg'}, ambient:imgFolder+'8.mp3', background:imgFolder+'8background.jpg' }, 
+{title:'Вопрос в области:  Музыкально-ритмический интеллект : Я умею разбирать музыкальные произведения на элементы.', titleAfter:'',indicator:{left:imgFolder+'8i_left.jpg', movingPrefix:imgFolder+'8i_moving', right:imgFolder+'8i_right.jpg'}, ambient:imgFolder+'8.mp3', background:imgFolder+'8background.jpg' }, 
+{title:'Вопрос в области:  Музыкально-ритмический интеллект : Я могу воспроизвести мелодию после ее прослушивания.', titleAfter:'',indicator:{left:imgFolder+'8i_left.jpg', movingPrefix:imgFolder+'8i_moving', right:imgFolder+'8i_right.jpg'}, ambient:imgFolder+'8.mp3', background:imgFolder+'8background.jpg' }, 
+{title:'Вопрос в области:  Натуралистический интеллект : Я легко распознаю различные явления природы.', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Натуралистический интеллект:  Я умею находить места силы в природе.', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Натуралистический интеллект : Я знаю и умею определять множество видов растений и грибов.', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Временной интеллект : Я осознаю себя в разных временных измерениях.', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Временной интеллект : Я умею планировать свое будущее и визуализировать его.', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Временной интеллект : Я умею управлять своими воспоминаниями и выбирать, на что обращать внимание.', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Креативный интеллект : Я умею создавать что-то новое и оригинальное.', titleAfter:'',indicator:{left:imgFolder+'9i_left.jpg', movingPrefix:imgFolder+'9i_moving', right:imgFolder+'9i_right.jpg'}, ambient:imgFolder+'9.mp3', background:imgFolder+'9background.jpg' }, 
+{title:'Вопрос в области:  Креативный интеллект:  Я нахожу нестандартные решения для задач.', titleAfter:'',indicator:{left:imgFolder+'9i_left.jpg', movingPrefix:imgFolder+'9i_moving', right:imgFolder+'9i_right.jpg'}, ambient:imgFolder+'9.mp3', background:imgFolder+'9background.jpg' }, 
+{title:'Вопрос в области:  Креативный интеллект : Я умею расфокусировать внимание для поиска новых идей.', titleAfter:'',indicator:{left:imgFolder+'9i_left.jpg', movingPrefix:imgFolder+'9i_moving', right:imgFolder+'9i_right.jpg'}, ambient:imgFolder+'9.mp3', background:imgFolder+'9background.jpg' }, 
+{title:'Вопрос в области:  Профессиональный интеллект : Я умею следовать инструкциям и выполнять задачи.', titleAfter:'',indicator:{left:imgFolder+'6i_left.jpg', movingPrefix:imgFolder+'6i_moving', right:imgFolder+'6i_right.jpg'}, ambient:imgFolder+'6.mp3', background:imgFolder+'6background.jpg' }, 
+{title:'Вопрос в области:  Профессиональный интеллект : Я умею концентрироваться на работе и быть продуктивным.', titleAfter:'',indicator:{left:imgFolder+'6i_left.jpg', movingPrefix:imgFolder+'6i_moving', right:imgFolder+'6i_right.jpg'}, ambient:imgFolder+'6.mp3', background:imgFolder+'6background.jpg' }, 
+{title:'Вопрос в области:  Профессиональный интеллект : Я умею работать в рамках установленных правил и процедур.', titleAfter:'',indicator:{left:imgFolder+'6i_left.jpg', movingPrefix:imgFolder+'6i_moving', right:imgFolder+'6i_right.jpg'}, ambient:imgFolder+'6.mp3', background:imgFolder+'6background.jpg' }, 
+{title:'Вопрос в области:  Подсознательный интеллект : Я помню и анализирую свои сны.', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Подсознательный интеллект : Я умею находить связь между сновидениями и реальностью.', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }, 
+{title:'Вопрос в области:  Подсознательный интеллект : Я осознаю свои подсознательные процессы.', titleAfter:'',indicator:{left:imgFolder+'1i_left.jpg', movingPrefix:imgFolder+'1i_moving', right:imgFolder+'1i_right.jpg'}, ambient:imgFolder+'1.mp3', background:imgFolder+'1background.jpg' }
+  ];
+  const FINAL_BACKGROUND = imgFolder+'FINbackground.jpg';
+
+
+	linkAIorHIstr = 'https://AlesMishchenko.github.io/tests/how_does_AI_think.html';
+	linkAIorHIstr = 'https://AlesMishchenko.github.io/tests/how_AI_thinks.html';
+
+	linkTypesIstr = 'https://AlesMishchenko.github.io/tests/types_of_intellect.html';
+	linkTypesIstr = 'https://AlesMishchenko.github.io/tests/intellectTypes.html';
+
+	linkSoulDetectstr = 'https://AlesMishchenko.github.io/tests/soul_detectior.html';
+	linkSoulDetectstr = 'https://AlesMishchenko.github.io/tests/soul_detection.html';
+
+	linkALLstr = 'https://AlesMishchenko.github.io/tests/index.html';
+	linkALLstr = 'https://AlesMishchenko.github.io/tests/index.html';
+
+	linkINDULGstr = 'https://AlesMishchenko.github.io/indulgencia';
+	linkINDULGstr = 'https://AlesMishchenko.github.io/indulgencia';
+	
+	linkTGstr = 'https://t.me/mymamume';
+	linkTGstr = 'https://t.me/mymamume';	
+
+	SCOREstr1 = 'Your score: ';
+	SCOREstr1 = 'Количество положительных ответов: ';
+	SCOREstr2 = '/'+screens.length.toString();
+
+	finSCOREstr1 = 'Percentage of correct answers: ';
+	finSCOREstr1 = 'Процент положительных ответов: ';
+
+	finSCOREstr2 = '. You can rerun the test again, try other tests or read texts, related to thinking matter, etc:';
+	finSCOREstr2 = '. Вы можете пройти этот тест снова, пройти другие тесты или почитать тексты связанные с мыслящей материей, итд:';
+
+	buttonAIorHIstr = 'Avanmonga-Mishchenko test on guessing what exactly AI wanted to draw  : do you understand the way AI thinks?' ; //'this test again'; // 
+	buttonAIorHIstr = 'Тест Аванмонги-Мищенко на определение того что именно хотел изобразить ИИ : понимаете ли Вы как мыслит ИИ? '; //'этот тест заново'; // 
+	//buttonAIorHIstr = 'This test again';
+	//buttonAIorHIstr = 'Этот тест заново';
+	
+	buttonSoulDetectstr = 'Animated Turing-Mishchenko test on existence of conscious & awareness : do you have soul,  is it sleeping or awake?  ';
+	buttonSoulDetectstr = "Анимированный тест Тьюринга-Мищенко наличия самосознания и осознанности : есть ли у Вас душа,  насколько она проявлена?  ";
+	//buttonSoulDetectstr = 'This test again';
+	//buttonSoulDetectstr = 'Этот тест заново';
+	
+	buttonDetailedSoulDetectstr = 'Detailed Turing-Mishchenko test on existence of conscious & awareness : details on existence, sleeping or awakeness of soul ';
+	buttonDetailedSoulDetectstr = "Подробный тест Тьюринга-Мищенко наличия самосознания и осознанности : тест наличия, проявленности и пробуждённости души ";
+	//buttonDetailedSoulDetectstr = 'This test again';
+	//buttonDetailedSoulDetectstr = 'Этот тест заново';
+	
+	buttonTypesIstr = 'Test-questionaire of Catherine Khodorova on different types of intellect : do you know all sides of your intellect?  ';
+	buttonTypesIstr = 'Тест-опрос Екатерины Ходровой на различные типы интеллекта : знаете ли Вы все стороны своего интеллекта?  ';
+	buttonTypesIstr = 'This test again';
+	buttonTypesIstr = 'Этот тест заново';
+	
+	buttonALLstr = 'All tests, literature texts and telegram-channels related to awareness';
+	buttonALLstr = 'Все тесты, литературные тексты и телеграм-каналы, связанные с самосознанием и осознаностью';
+
+	buttonINDULGstr = 'Abovementioned interactive essays';
+	buttonINDULGstr = 'Вышеупомянутые интерактивные эссе';
+
+
+  // DOM
+  const appEl = document.getElementById('app');
+  const titleEl = document.getElementById('title');
+  const scoreEl = document.getElementById('score');
+  const middleEl = document.querySelector('.middle');
+  const indicatorLeftEl = document.getElementById('indicatorLeft');
+  const indicatorMovingEl = document.getElementById('indicatorMoving');
+  const indicatorRightEl = document.getElementById('indicatorRight');
+  const progressRedEl = document.getElementById('progressRed');
+
+  // State
+  let currentScreen = 0;
+  let score = 0;
+  let ambientAudio = null;
+  let clickAudio = null;
+  let rafId = null;
+  let startTimestamp = 0;
+  let indicatorStartTimestamp = 0;
+  let indicatorDoneTriggered = false;
+  let transitioning = false;
+
+  const letters = ['a','b','c','d','e','f','g','h','i','k','l','n','o'];
+
+  // Utils
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
+    }
+    return arr;
+  }
+  function makeAudio(src) {
+    const a = new Audio(src);
+    a.preload = 'auto';
+    a.crossOrigin = 'anonymous';
+    return a;
+  }
+  function stopAudio(a){ if(a){ try{ a.pause(); a.currentTime=0; }catch{} } }
+  function setScore(){ scoreEl.textContent = SCOREstr1  + score +SCOREstr2; }
+  function clearMiddle(){ middleEl.innerHTML=''; }
+
+  // Build one card
+  function buildCard(screenIndex, letter, labelText){
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.key = letter;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'imgWrap';
+    wrap.dataset.key = letter;
+
+    const img = document.createElement('img');
+    img.className = 'bigImg';
+    img.src = imgFolder+`${letter}.jpg`; //MY
+	//img.src = `${screenIndex+1}${letter}.jpg`; //WAS
+    img.alt = labelText || letter;
+
+    wrap.appendChild(img);
+    card.appendChild(wrap);
+
+    // Place label if enabled
+    if (place_names_images !== 'no' && labelText) {
+      const label = document.createElement('div');
+      label.className = 'label ' + (place_names_images === 'left-and-up' ? 'left-up' : 'right-down');
+      label.textContent = labelText;
+      card.appendChild(label);
+    }
+
+    // Hover/touch enlarge per constBoarders
+    const addHover = () => { (constBoarders ? wrap : card).classList.add('hovered'); };
+    const removeHover = () => { wrap.classList.remove('hovered'); card.classList.remove('hovered'); };
+    card.addEventListener('pointerenter', addHover, { passive:true });
+    card.addEventListener('pointerleave', removeHover, { passive:true });
+    card.addEventListener('pointercancel', removeHover, { passive:true });
+    card.addEventListener('touchstart', addHover, { passive:true });
+    card.addEventListener('touchend', removeHover, { passive:true });
+
+    // Click behavior
+    wrap.addEventListener('click', () => onBigImageClick(letter, img, screenIndex)); //MY screenIndex
+
+    return card;
+  }
+
+  // Click handler: swap image, set title, play a/bc once, then advance after time_after_click
+  function onBigImageClick(letter, imgEl, index){ //MY index
+    if (transitioning) return;
+    transitioning = true;
+
+    stopAudio(ambientAudio);
+	
+	const cfg = screens[index]; //MY
+
+    const isA = (letter === 'a');
+    const clickSrc = isA ? CLICK_AUDIO_A : CLICK_AUDIO_BC;
+    replacementSrc = isA ? imgFolder+'aClick.jpg' : imgFolder+'bcClick.jpg';
+	//MY
+	const isB = (letter === 'b'); 
+	const isC = (letter === 'c');
+	const isD = (letter === 'd');
+	const isE = (letter === 'e');	
+	if (isB) { replacementSrc=imgFolder+'bClick.jpg'; }
+	if (isC) { replacementSrc=imgFolder+'cClick.jpg'; }
+	if (isD) { replacementSrc=imgFolder+'dClick.jpg'; }
+	if (isE) { replacementSrc=imgFolder+'eClick.jpg'; }
+
+    const replacementTitle = isA ? 'Поздравляем, у Вас высокий интеллект данной категории' : 'Вам стоит поработать над развитием интеллекта данной категории';
+
+    if (isA) { score += 1; setScore(); }
+    imgEl.src = replacementSrc;
+    titleEl.textContent = replacementTitle;
+
+    stopAudio(clickAudio);
+    clickAudio = makeAudio(clickSrc);
+    const p = clickAudio.play();
+    if (p && typeof p.catch === 'function') { p.catch(()=>{}); }
+
+    setTimeout(goToNextScreen, time_after_click);
+  }
+
+  // Render screen; two-phase reveal when delay_of_subsequent_appearence_ms > 0
+  function renderScreen(index){
+    const cfg = screens[index];
+    setScore();
+    clearMiddle();
+    transitioning = false;
+    indicatorDoneTriggered = false;
+
+    // Background, title, and indicator sources set immediately
+    appEl.style.backgroundImage = `url('${cfg.background}')`;
+    titleEl.textContent = cfg.title;
+    indicatorLeftEl.src = cfg.indicator.left;
+    indicatorRightEl.src = cfg.indicator.right;
+    indicatorMovingEl.src = `${cfg.indicator.movingPrefix}0.jpg`;
+
+    // Build items and randomize order
+    const requestedN = number_of_big_size_images[index] || 0;
+    const labels = names_of_big_size_images[index] || [];
+    const maxN = Math.min(requestedN, letters.length, labels.length || requestedN);
+    const items = [];
+    for (let j = 0; j < maxN; j++) {
+      items.push({ letter: letters[j], labelText: labels[j] || '' });
+    }
+    shuffle(items);
+    const cards = items.map(({letter,labelText}) => buildCard(index, letter, labelText));
+    cards.forEach(card => middleEl.appendChild(card));
+
+    // Reveal strategy
+    if (delay_of_subsequent_appearence_ms > 0) {
+      // Phase 1: non–big-image elements
+      const nonImageActions = [];
+
+      // Hide non-image elements first
+      titleEl.style.visibility = 'hidden';
+      indicatorLeftEl.style.visibility = 'hidden';
+      indicatorRightEl.style.visibility = 'hidden';
+      indicatorMovingEl.style.visibility = 'hidden';
+      progressRedEl.style.visibility = 'hidden';
+
+      // (Background is already applied; we can add a dummy step so it participates in random order)
+      nonImageActions.push(() => { /* background remains applied */ });
+      nonImageActions.push(() => { titleEl.style.visibility = 'visible'; });
+      nonImageActions.push(() => { indicatorLeftEl.style.visibility = 'visible'; });
+      nonImageActions.push(() => { indicatorRightEl.style.visibility = 'visible'; });
+      nonImageActions.push(() => { indicatorMovingEl.style.visibility = 'visible'; });
+      nonImageActions.push(() => { progressRedEl.style.visibility = 'visible'; });
+
+      // Phase 2: big-image cards
+      const imageActions = [];
+      cards.forEach(card => {
+        card.style.visibility = 'hidden';
+        imageActions.push(() => { card.style.visibility = 'visible'; });
+      });
+
+      // Shuffle each group separately and schedule
+      shuffle(nonImageActions);
+      shuffle(imageActions);
+
+      nonImageActions.forEach((fn, i) => {
+        setTimeout(fn, i * delay_of_subsequent_appearence_ms);
+      });
+      const offset = nonImageActions.length * delay_of_subsequent_appearence_ms;
+      imageActions.forEach((fn, i) => {
+        setTimeout(fn, offset + i * delay_of_subsequent_appearence_ms*timesCardsAppearSlowerThanIndicator);
+      });
+    } else {
+      // Simultaneous appearance
+      titleEl.style.visibility = 'visible';
+      indicatorLeftEl.style.visibility = 'visible';
+      indicatorRightEl.style.visibility = 'visible';
+      indicatorMovingEl.style.visibility = 'visible';
+      progressRedEl.style.visibility = 'visible';
+      cards.forEach(card => { card.style.visibility = 'visible'; });
+    }
+
+    // Ambient audio (optional; stop after 20s; ignore autoplay errors)
+    stopAudio(ambientAudio);
+    ambientAudio = makeAudio(cfg.ambient);
+    const ap = ambientAudio.play();
+    if (ap && typeof ap.catch === 'function') { ap.catch(()=>{}); }
+    setTimeout(() => stopAudio(ambientAudio), AMBIENT_DURATION_MS);
+
+    // Start timestamps (indicator won't restart on resize)
+    startTimestamp = performance.now();
+    indicatorStartTimestamp = startTimestamp;
+
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // Next / final
+  function goToNextScreen(){
+    stopAudio(ambientAudio);
+    stopAudio(clickAudio);
+    cancelAnimationFrame(rafId);
+
+    currentScreen += 1;
+    if (currentScreen < screens.length) {
+      renderScreen(currentScreen);
+    } else {
+      showFinalScreen();
+    }
+  }
+  
+  function doubleButtonFontSize(docPart) {
+    // Select all button elements
+    const buttons = docPart.querySelectorAll('button');
+
+    buttons.forEach(button => {
+        // Get computed font size (includes inherited styles)
+        const computedSize = window.getComputedStyle(button).fontSize;
+
+        // Parse numeric value and unit (usually 'px')
+        const sizeValue = parseFloat(computedSize);
+        const sizeUnit = computedSize.replace(sizeValue, '');
+
+        if (!isNaN(sizeValue)) {
+            // Double the size and apply it back
+            button.style.fontSize = (sizeValue * 2) + sizeUnit;
+        }
+    });
+  }
+  
+  function showFinalScreen(){
+    stopAudio(ambientAudio);
+    stopAudio(clickAudio);
+    cancelAnimationFrame(rafId);
+
+    appEl.style.backgroundImage = `url('${FINAL_BACKGROUND}')`;
+    titleEl.textContent = finSCOREstr1  + Math.floor(100*score/screens.length) + finSCOREstr2;
+
+    clearMiddle();
+    document.querySelector('.bottom').innerHTML = '';
+
+    const actions = document.createElement('div');
+    actions.className = 'finalActions';
+
+    const to1Btn = document.createElement('button');
+    to1Btn.className = 'finalBtn';
+    to1Btn.textContent = buttonAIorHIstr ;
+    to1Btn.addEventListener('click', () => { window.location.href = linkAIorHIstr; });
+
+    const to2Btn = document.createElement('button');
+    to2Btn.className = 'finalBtn';
+    to2Btn.textContent = buttonSoulDetectstr;
+    to2Btn.addEventListener('click', () => { window.location.href = linkSoulDetectstr; });
+
+    const to3Btn = document.createElement('button');
+    to3Btn.className = 'finalBtn';
+    to3Btn.textContent = buttonTypesIstr;
+    to3Btn.addEventListener('click', () => { window.location.href = linkTypesIstr; });
+
+    const to4Btn = document.createElement('button');
+    to4Btn.className = 'finalBtn';
+    to4Btn.textContent = buttonALLstr;
+    to4Btn.addEventListener('click', () => { window.location.href = linkALLstr; });
+	
+	//const to5Btn = document.createElement('button');
+    //to5Btn.className = 'finalBtn';
+    //to5Btn.textContent = buttonINDULGstr;
+    //to5Btn.addEventListener('click', () => { window.location.href = linkINDULGstr; });
+
+    actions.appendChild(to1Btn);
+	actions.appendChild(document.createElement('hr'));
+    actions.appendChild(to2Btn);
+	actions.appendChild(document.createElement('hr'));
+	actions.appendChild(to3Btn);
+	actions.appendChild(document.createElement('hr'));
+    actions.appendChild(to4Btn);
+	actions.appendChild(document.createElement('hr'));
+    //actions.appendChild(to5Btn);
+	//actions.appendChild(document.createElement('hr'));
+	actions.appendChild(document.createElement('hr'));	
+	const minicard = document.createElement('div');
+    minicard.className = 'minicard';
+    const wrap = document.createElement('div');
+    wrap.className = 'imgWrap'; 
+    const img = document.createElement('img');
+    img.className = 'bigImg'; 
+    img.src = '4M.jpg'; 
+    wrap.appendChild(img);
+    minicard.appendChild(wrap);
+    const label = document.createElement('div');
+    label.className = 'label ' + 'right-down';
+    label.textContent = "Ещё: ТГканал Мыслящая Материя Мудрого Метелика"; //labelText; МЫСЛЯЩАЯ МАТЕРИЯ МУДРОГО МЕТЕЛИКА
+    minicard.appendChild(label);		
+	minicard.addEventListener('click', () => { window.location.href = linkTGstr; });
+	actions.appendChild(minicard);
+	
+    middleEl.appendChild(actions);
+	doubleButtonFontSize(actions);
+  }
+
+  // Animation loop: move_direction + global scale + hover enlarge + indicator progress with 8 frames
+  function tick(now){
+    const cards = Array.from(document.querySelectorAll('.card'));
+    cards.forEach((card, idx) => {
+      const wrap = card.querySelector('.imgWrap');
+      const targetEl = constBoarders ? wrap : card;
+
+      const rect = card.getBoundingClientRect();
+      const baseSize = Math.min(rect.width, rect.height);
+      const amp = baseSize * 0.05; // 5% amplitude
+      const phase = idx * Math.PI / 3;
+      const t = (now - startTimestamp) / 1000;
+
+      let translateX = 0;
+      let translateY = 0;
+      let scaleDynamic = 1;
+
+      if (move_direction === 'up-and-down') {
+        translateY = Math.sin(t + phase) * amp;
+      } else if (move_direction === 'left-and-right') {
+        translateX = Math.sin(t + phase) * amp;
+      } else if (move_direction === 'far-and-near') {
+        scaleDynamic = 1 + 0.05 * Math.sin(t + phase); // ±5% pulsing
+      }
+
+      const baseScale = Math.max(0.01, big_size_images_coefficient);
+      const isHovered = targetEl.classList.contains('hovered');
+      const hoverScale = isHovered ? 1.07 : 1;
+
+      const totalScale = baseScale * scaleDynamic * hoverScale;
+      targetEl.style.transform = `translate(${translateX}px, ${translateY}px) scale(${totalScale})`;
+      targetEl.style.transformOrigin = 'center center';
+    });
+
+    updateIndicator(now);
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // Indicator progress and auto-advance
+  function updateIndicator(now){
+    const indicatorEl = document.querySelector('.indicator');
+    if (!indicatorEl) return;
+
+    const innerWidth = indicatorEl.clientWidth || 0;
+    const leftStop = 8 + 56;
+    const rightStop = Math.max(leftStop, innerWidth - 8 - 56 - 56);
+
+    const elapsed = now - indicatorStartTimestamp;
+    const p = Math.max(0, Math.min(1, INDICATOR_GOING_FULLTIME_MS > 0 ? (elapsed / INDICATOR_GOING_FULLTIME_MS) : 0));
+
+    const movingLeft = leftStop + (rightStop - leftStop) * p;
+    indicatorMovingEl.style.left = movingLeft + 'px';
+
+    const redWidth = Math.max(0, movingLeft - leftStop);
+    progressRedEl.style.width = redWidth + 'px';
+    progressRedEl.style.left = leftStop + 'px';
+
+    const cfg = screens[currentScreen];
+    if (cfg && cfg.indicator && cfg.indicator.movingPrefix) {
+      //const frame = Math.min(7, Math.max(0, Math.floor(p * 8)));//MY
+	  const frame = Math.min(0, Math.max(0, Math.floor(p * 8))); 
+      indicatorMovingEl.src = `${cfg.indicator.movingPrefix}${frame}.jpg`;
+    }
+
+    if (p >= 1 && !indicatorDoneTriggered && !transitioning) {
+      indicatorDoneTriggered = true;
+      transitioning = true;
+
+      stopAudio(clickAudio);
+      clickAudio = makeAudio(imgFolder+'bc.mp3');
+      const pp = clickAudio.play();
+      setTimeout(goToNextScreen, 1000);
+      if (pp && typeof pp.catch === 'function') { pp.catch(()=>{}); }
+    }
+  }
+
+  // Start
+  renderScreen(0);
+});
+</script>
+</body>
+</html>
