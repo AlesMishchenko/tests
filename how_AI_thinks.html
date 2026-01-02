@@ -26,6 +26,7 @@
   .imgWrap.hovered { transform: scale(1.07); }
 
   .bigImg { width:100%; height:100%; object-fit:cover; border-radius:4px; user-select:none; -webkit-user-drag:none; pointer-events:none; }
+  .smallImg { width:80%; height:80%; object-fit:cover; border-radius:4px; user-select:none; -webkit-user-drag:none; pointer-events:none; }
 	
   .label { position:absolute; font-weight:700; background:rgba(255,255,255,0.9); border:1px solid #ddd; border-radius:4px; padding:2px 6px; pointer-events:none; }
   .label.right-down { right:8px; bottom:8px; }
@@ -574,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const wrap1 = document.createElement('div');
     wrap1.className = 'imgWrap'; 
     const img1 = document.createElement('img');
-    img1.className = 'bigImg'; 
+    img1.className = 'smallImg'; 
     img1.src = 'avtomidup.jpg'; 
     wrap1.appendChild(img1);
     minicard1.appendChild(wrap1);
@@ -671,6 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
 
 
 
