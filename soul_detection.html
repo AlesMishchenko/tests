@@ -19,6 +19,8 @@
   
   .minicard { position:relative; width:100%; aspect-ratio:3 / 4; max-width:160px; border:1px solid #ddd; border-radius:8px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow:hidden; transition:transform 120ms ease; will-change:transform; }
   .minicard.hovered { transform: scale(1.07); }
+  .microcard { position:relative; width:80%; aspect-ratio:3 / 4; max-width:80px; border:1px solid #ddd; border-radius:8px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.06); overflow:hidden; transition:transform 120ms ease; will-change:transform; }
+  .microcard.hovered { transform: scale(1.07); }
 
   .imgWrap { position:absolute; inset:8px; display:flex; align-items:center; justify-content:center; transition:transform 120ms ease; will-change:transform; }
   .imgWrap.hovered { transform: scale(1.07); }
@@ -668,7 +670,22 @@ document.addEventListener('DOMContentLoaded', () => {
     minicard.appendChild(label);		
 	minicard.addEventListener('click', () => { window.location.href = linkTGstr; });
 	actions.appendChild(minicard);
-	
+
+	const minicard1 = document.createElement('div');
+    minicard1.className = 'microcard';
+    const wrap1 = document.createElement('div');
+    wrap1.className = 'imgWrap'; 
+    const img1 = document.createElement('img');
+    img1.className = 'bigImg'; 
+    img1.src = 'avtomidup.jpg'; 
+    wrap1.appendChild(img1);
+    minicard1.appendChild(wrap1);
+    const label1 = document.createElement('div');
+    label1.className = 'label ' + 'right-down';
+    label1.textContent = "Связь с автором";
+    minicard1.appendChild(label1);		
+	minicard1.addEventListener('click', () => { window.location.href = linkTGstr; });
+	actions.appendChild(minicard1);
 	
 	/*
 	const TGchannel = document.createElement('div'); 
@@ -768,3 +785,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
