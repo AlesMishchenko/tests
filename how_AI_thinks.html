@@ -28,7 +28,6 @@
   .label { position:absolute; font-weight:700; background:rgba(255,255,255,0.9); border:1px solid #ddd; border-radius:4px; padding:2px 6px; pointer-events:none; }
   .label.right-down { right:8px; bottom:8px; }
   .label.left-up { left:8px; top:8px; }
-  .label.left-down { left:8px; bottom:8px; }
 
   .bottom { flex:0 0 auto; padding:8px 12px 12px; border-top:1px solid #ddd; background:#fff; }
   .indicator { position:relative; height:56px; border:1px solid #ddd; border-radius:8px; background:white; overflow:hidden; }
@@ -578,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
     wrap.appendChild(img);
     minicard.appendChild(wrap);
     const label = document.createElement('div');
-    label.className = 'label ' + 'left-down';
+    label.className = 'label ' + 'right-down';
     label.textContent = "Связь с автором";
     minicard.appendChild(label);		
 	minicard.addEventListener('click', () => { window.location.href = linkTGstr; });
@@ -670,6 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
 
 
 
